@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import random
 from datetime import datetime
 import requests
+from fractions import Fraction  # for simplified fraction display
 
 # -------------------------------
 # Page configuration
@@ -119,7 +120,7 @@ st.markdown("""
 top_cols = st.columns([2,1,1])
 with top_cols[0]:
     st.markdown("**Progress**")
-    st.progress(min(st.session_state.xp % 100 / 100, 1.0))
+    st.progress(min((st.session_state.xp % 100) / 100, 1.0))
 with top_cols[1]:
     st.metric("⭐ XP", st.session_state.xp)
 with top_cols[2]:
@@ -164,6 +165,14 @@ def fraction_to_percent(num, den):
         return None
     return (num / den) * 100
 
+def percent_as_simplified_fraction_of_whole(pct: float):
+    """
+    Converts a percent (e.g., 12.5) to a simplified fraction of the whole (e.g., 1/8),
+    because pct% = pct/100 of the whole.
+    """
+    frac = Fraction(pct / 100).limit_denominator(1000)
+    return frac.numerator, frac.denominator
+
 def draw_percent_bar(pct, color='#ff6b6b'):
     fig, ax = plt.subplots(figsize=(8, 1))
     ax.barh([0], [pct], color=color)
@@ -175,13 +184,13 @@ def draw_percent_bar(pct, color='#ff6b6b'):
 def draw_10x10_grid(pct):
     filled = int(round(pct))
     fig, ax = plt.subplots(figsize=(4,4))
-    grid = np.zeros((10,10))
-    count = 0
+    grid = np.zeros((10,10), dtype=int)
+    idx = 0
     for r in range(10):
         for c in range(10):
-            if count < filled:
-                grid[r,c] = 1
-                count += 1
+            if idx < filled:
+                grid[r, c] = 1
+                idx += 1
     ax.imshow(grid, cmap='Greys', vmin=0, vmax=1)
     ax.set_xticks(np.arange(-.5, 10, 1)); ax.set_yticks(np.arange(-.5, 10, 1))
     ax.set_xticklabels([]); ax.set_yticklabels([])
@@ -257,7 +266,7 @@ if page == "🏠 Home & Overview":
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    if st.button("Claim your Starter Bonus (+10 XP)"):
+    if st.button("Claim your Starter Bonus (+10 XP)", key="starter_bonus"):
         award_xp(10, "Starter Bonus", "Home")
 
 # -------------------------------
@@ -282,13 +291,14 @@ elif page == "🔍 The Basics of Percents":
     </div>
     """, unsafe_allow_html=True)
 
-    percent_value = st.slider("Select a percentage", 0, 100, 40, 1)
+    percent_value = st.slider("Select a percentage", 0, 100, 40, 1, key="basics_slider")
     decimal_value = percent_to_decimal(percent_value)
+    n, d = percent_as_simplified_fraction_of_whole(percent_value)
     st.markdown(f"""
     <div class="concept-box">
         <ul>
             <li><b>As a Decimal:</b> {percent_value}% = {decimal_value}</li>
-            <li><b>As a Fraction:</b> {percent_value}% = {percent_value}/100 = {percent_value/100:.2f} of the whole</li>
+            <li><b>As a Fraction of the whole:</b> {percent_value}% = {n}/{d}</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -313,25 +323,25 @@ elif page == "🎛️ Conversion Lab (%, decimal, fraction)":
 
     tab1, tab2, tab3 = st.tabs(["Percent → Decimal", "Decimal → Percent", "Fraction → Percent"])
     with tab1:
-        p = st.number_input("Enter a percent (%)", 0.0, 100.0, 25.0, 0.1)
+        p = st.number_input("Enter a percent (%)", 0.0, 100.0, 25.0, 0.1, key="pct_to_dec_input")
         st.write(f"Decimal = {percent_to_decimal(p)}")
-        if st.button("Check understanding (Percent → Decimal)"):
+        if st.button("Check understanding (Percent → Decimal)", key="pct_to_dec_check"):
             record_result("Conversion", "Percent→Decimal", p, True, "Converted.", xp_gain=5)
             st.success("Nice! +5 XP")
 
     with tab2:
-        d = st.number_input("Enter a decimal (0 to 1)", 0.0, 1.0, 0.6, 0.01, key="dec_to_pct")
+        d = st.number_input("Enter a decimal (0 to 1)", 0.0, 1.0, 0.6, 0.01, key="dec_to_pct_input")
         st.write(f"Percent = {decimal_to_percent(d):.2f}%")
-        if st.button("Check understanding (Decimal → Percent)"):
+        if st.button("Check understanding (Decimal → Percent)", key="dec_to_pct_check"):
             record_result("Conversion", "Decimal→Percent", d, True, "Converted.", xp_gain=5)
             st.success("Great! +5 XP")
 
     with tab3:
-        num = st.number_input("Numerator", 0, 100, 1, 1)
-        den = st.number_input("Denominator", 1, 100, 4, 1)
+        num = st.number_input("Numerator", 0, 100, 1, 1, key="frac_num")
+        den = st.number_input("Denominator", 1, 100, 4, 1, key="frac_den")
         pct = fraction_to_percent(num, den)
         st.write(f"Percent = {pct:.2f}%")
-        if st.button("Check understanding (Fraction → Percent)"):
+        if st.button("Check understanding (Fraction → Percent)", key="frac_to_pct_check"):
             record_result("Conversion", "Fraction→Percent", f"{num}/{den}", True, "Converted.", xp_gain=5)
             st.success("Well done! +5 XP")
 
@@ -344,9 +354,9 @@ elif page == "✖️ Percent of a Number":
 
     c1, c2 = st.columns(2)
     with c1:
-        percent_input = st.number_input("Percent (%)", min_value=0.0, max_value=100.0, value=25.0, step=0.5)
+        percent_input = st.number_input("Percent (%)", min_value=0.0, max_value=100.0, value=25.0, step=0.5, key="poa_pct")
     with c2:
-        whole_input = st.number_input("Whole", min_value=0.0, value=120.0, step=1.0)
+        whole_input = st.number_input("Whole", min_value=0.0, value=120.0, step=1.0, key="poa_whole")
 
     part = (percent_input/100.0) * whole_input if whole_input != 0 else 0.0
     st.markdown(f"""
@@ -359,7 +369,7 @@ elif page == "✖️ Percent of a Number":
     if "poa_level" not in st.session_state:
         st.session_state.poa_level = 1  # increases with correct answers
 
-    if st.button("New Practice Problem"):
+    if st.button("New Practice Problem", key="poa_new"):
         p = random.choice([5,10,15,20,25,30,40,50,60,75,80,90])
         w = random.randint(20*st.session_state.poa_level, 80*st.session_state.poa_level)
         st.session_state.poa_problem = (p, w)
@@ -368,7 +378,7 @@ elif page == "✖️ Percent of a Number":
     if "poa_problem" in st.session_state:
         p, w = st.session_state.poa_problem
         user = st.text_input(f"What is {p}% of {w}?", key="poa_user")
-        if st.button("Check Answer"):
+        if st.button("Check Answer", key="poa_check"):
             correct = check_numeric_answer(user, st.session_state.poa_answer, tol=1e-2)
             fb = f"Correct: {p}% of {w} is {st.session_state.poa_answer:.2f}."
             if correct:
@@ -388,9 +398,9 @@ elif page == "📈 Percent Change & Discounts":
 
     col1, col2 = st.columns(2)
     with col1:
-        original_value = st.number_input("Original Value", value=100.0, step=1.0)
+        original_value = st.number_input("Original Value", value=100.0, step=1.0, key="pc_orig")
     with col2:
-        new_value = st.number_input("New Value", value=120.0, step=1.0)
+        new_value = st.number_input("New Value", value=120.0, step=1.0, key="pc_new")
 
     if original_value != 0:
         percent_change = ((new_value - original_value) / original_value) * 100
@@ -406,15 +416,15 @@ elif page == "📈 Percent Change & Discounts":
         st.warning("Original value cannot be zero.")
 
     st.markdown("### Discount Simulator")
-    price = st.number_input("Item Price ($)", value=60.0, step=0.5)
-    discount = st.slider("Discount (%)", 0, 90, 20)
+    price = st.number_input("Item Price ($)", value=60.0, step=0.5, key="disc_price")
+    discount = st.slider("Discount (%)", 0, 90, 20, key="disc_slider")
     savings = price * discount/100
     final_price = price - savings
     c1, c2, c3 = st.columns(3)
-    with c1: st.metric("Original", f"${price:.2f}")
-    with c2: st.metric("You Save", f"${savings:.2f}")
-    with c3: st.metric("Final Price", f"${final_price:.2f}")
-    if st.button("👍 I computed it! (+5 XP)"):
+    with c1: st.metric("Original", f"${price:,.2f}")
+    with c2: st.metric("You Save", f"${savings:,.2f}")
+    with c3: st.metric("Final Price", f"${final_price:,.2f}")
+    if st.button("👍 I computed it! (+5 XP)", key="disc_computed"):
         award_xp(5, "Discount Simulator", "Percent Change")
 
 # -------------------------------
@@ -424,12 +434,12 @@ elif page == "🧾 Tax & Tip Receipt Builder":
     st.header("🧾 Tax & Tip Receipt Builder")
     st.markdown("Build a real receipt with **sales tax** and **tip**. Great for financial literacy!")
 
-    items = st.number_input("Number of line items", 1, 10, 3)
+    items = st.number_input("Number of line items", 1, 10, 3, key="receipt_items")
     data = []
     for i in range(items):
         c1, c2, c3 = st.columns([3,1,1])
         with c1:
-            name = st.text_input(f"Item {i+1} name", value=f"Item {i+1}")
+            name = st.text_input(f"Item {i+1} name", value=f"Item {i+1}", key=f"item_name_{i}")
         with c2:
             qty = st.number_input(f"Qty {i+1}", 1, 20, 1, key=f"qty_{i}")
         with c3:
@@ -441,21 +451,21 @@ elif page == "🧾 Tax & Tip Receipt Builder":
 
     col = st.columns(3)
     with col[0]:
-        tax_rate = st.number_input("Sales Tax (%)", 0.0, 20.0, 6.625, 0.125)
+        tax_rate = st.number_input("Sales Tax (%)", 0.0, 20.0, 6.625, 0.125, key="tax_rate")
     with col[1]:
-        tip_rate = st.number_input("Tip (%)", 0.0, 30.0, 18.0, 0.5)
+        tip_rate = st.number_input("Tip (%)", 0.0, 30.0, 18.0, 0.5, key="tip_rate")
     with col[2]:
-        extra = st.number_input("Extra Fees ($)", 0.0, 100.0, 0.0, 0.5)
+        extra = st.number_input("Extra Fees ($)", 0.0, 100.0, 0.0, 0.5, key="extra_fees")
 
     tax = subtotal * tax_rate/100
     tip = subtotal * tip_rate/100
     total = subtotal + tax + tip + extra
 
-    st.markdown(f"**Subtotal:** ${subtotal:.2f}  •  **Tax:** ${tax:.2f}  •  **Tip:** ${tip:.2f}  •  **Fees:** ${extra:.2f}")
-    st.markdown(f"### **Total: ${total:.2f}**")
+    st.markdown(f"**Subtotal:** ${subtotal:,.2f}  •  **Tax:** ${tax:,.2f}  •  **Tip:** ${tip:,.2f}  •  **Fees:** ${extra:,.2f}")
+    st.markdown(f"### **Total: ${total:,.2f}**")
     draw_pie(min(100, tip_rate))  # Quick visual: tip % of 100
 
-    if st.button("Looks good! (+8 XP)"):
+    if st.button("Looks good! (+8 XP)", key="receipt_done"):
         award_xp(8, "Built a receipt", "Tax & Tip")
 
 # -------------------------------
@@ -469,11 +479,11 @@ elif page == "💼 Commission & Simple Interest":
         <p>Earnings = <b>Base Pay</b> + ( <b>Commission %</b> × <b>Sales</b> )</p>
     </div>
     """, unsafe_allow_html=True)
-    base = st.number_input("Base Pay ($)", 0.0, 5000.0, 500.0, 10.0)
-    sales = st.number_input("Total Sales ($)", 0.0, 100000.0, 2000.0, 50.0)
-    rate = st.slider("Commission Rate (%)", 0, 50, 10)
+    base = st.number_input("Base Pay ($)", 0.0, 5000.0, 500.0, 10.0, key="comm_base")
+    sales = st.number_input("Total Sales ($)", 0.0, 100000.0, 2000.0, 50.0, key="comm_sales")
+    rate = st.slider("Commission Rate (%)", 0, 50, 10, key="comm_rate")
     earnings = base + (rate/100)*sales
-    st.metric("Earnings", f"${earnings:.2f}")
+    st.metric("Earnings", f"${earnings:,.2f}")
 
     st.markdown("""
     <div class="activity-box">
@@ -481,16 +491,16 @@ elif page == "💼 Commission & Simple Interest":
         <p>I = P × r × t (where r is the decimal rate, t is years)</p>
     </div>
     """, unsafe_allow_html=True)
-    P = st.number_input("Principal ($)", 0.0, 10000.0, 1000.0, 10.0)
-    r = st.number_input("Rate (%)", 0.0, 100.0, 5.0, 0.25) / 100
-    t = st.number_input("Time (years)", 0.0, 10.0, 2.0, 0.5)
+    P = st.number_input("Principal ($)", 0.0, 10000.0, 1000.0, 10.0, key="si_P")
+    r = st.number_input("Rate (%)", 0.0, 100.0, 5.0, 0.25, key="si_r") / 100
+    t = st.number_input("Time (years)", 0.0, 10.0, 2.0, 0.5, key="si_t")
     I = P*r*t
     A = P + I
     c1, c2 = st.columns(2)
-    with c1: st.metric("Interest (I)", f"${I:.2f}")
-    with c2: st.metric("Amount (A)", f"${A:.2f}")
+    with c1: st.metric("Interest (I)", f"${I:,.2f}")
+    with c2: st.metric("Amount (A)", f"${A:,.2f}")
 
-    if st.button("I did these calculations (+8 XP)"):
+    if st.button("I did these calculations (+8 XP)", key="si_done"):
         award_xp(8, "Commission & Interest", "Finance")
 
 # -------------------------------
@@ -501,9 +511,9 @@ elif page == "🧩 Word Problem Generator":
     st.markdown("Get a fresh real-world percent problem. Enter your answer for instant feedback & XP.")
 
     topics = ["discount", "tax", "tip", "commission", "percent_of"]
-    topic = st.selectbox("Choose topic", topics)
+    topic = st.selectbox("Choose topic", topics, key="wp_topic")
 
-    if st.button("Generate problem"):
+    if st.button("Generate problem", key="wp_generate"):
         if topic == "discount":
             price = random.choice([24.99, 38.50, 59.95, 120.0])
             disc = random.choice([10, 15, 20, 25, 30, 40])
@@ -534,8 +544,10 @@ elif page == "🧩 Word Problem Generator":
     if "wp_text" in st.session_state:
         st.info(st.session_state.wp_text)
         usr = st.text_input("Your answer ($ or number):", key="wp_user")
-        if st.button("Check my answer"):
-            correct = check_numeric_answer(usr, st.session_state.wp_answer, tol=0.02*max(1, abs(st.session_state.wp_answer)))
+        if st.button("Check my answer", key="wp_check"):
+            # tolerance: 2% of answer (or 0.02 absolute min)
+            tol = 0.02 * max(1, abs(st.session_state.wp_answer))
+            correct = check_numeric_answer(usr, st.session_state.wp_answer, tol=tol)
             if correct:
                 st.success(f"✅ Correct! Answer ≈ {st.session_state.wp_answer:.2f}. +12 XP")
                 record_result("Word Problems", st.session_state.wp_text, usr, True, "Correct.", xp_gain=12)
@@ -563,12 +575,13 @@ elif page == "🤖 Design Your Own Percent Problem (Dr. X)":
     starter = st.text_area(
         "Describe a real situation you care about (shopping discount, tip at a restaurant, sales commission, school fundraiser, etc.).",
         placeholder="Example: I’m buying sneakers that cost $120 and there’s a 25% off coupon…",
-        height=100
+        height=100,
+        key="drx_starter"
     )
 
     colB1, colB2 = st.columns([1,1])
     with colB1:
-        if st.button("🧠 Brainstorm with Dr. X"):
+        if st.button("🧠 Brainstorm with Dr. X", key="drx_brainstorm"):
             if starter.strip():
                 system_prompt = (
                     "You are Dr. X, a friendly math coach for middle/high school students. "
@@ -590,7 +603,7 @@ elif page == "🤖 Design Your Own Percent Problem (Dr. X)":
 
     with colB2:
         user_msg = st.text_input("Reply to Dr. X here and keep the conversation going:", key="drx_reply")
-        if st.button("📨 Send to Dr. X"):
+        if st.button("📨 Send to Dr. X", key="drx_send"):
             if user_msg.strip():
                 st.session_state.drx_chat.append(("You", user_msg))
                 followup = ask_drx(
@@ -627,7 +640,8 @@ elif page == "🤖 Design Your Own Percent Problem (Dr. X)":
             part_calc = (pct/100.0) * whole
             st.success(f"Part = {part_calc:.2f}")
 
-        st.markdown(f"- Decimal form: **{pct/100:.3f}**  |  Fraction form: **{int(pct)}/100** (simplify if possible)")
+        simp_n, simp_d = percent_as_simplified_fraction_of_whole(pct)
+        st.markdown(f"- Decimal form: **{pct/100:.3f}**  |  Fraction form: **{simp_n}/{simp_d}**")
 
     with tabB:
         c4, c5 = st.columns(2)
@@ -645,8 +659,8 @@ elif page == "🤖 Design Your Own Percent Problem (Dr. X)":
 
     st.markdown("---")
     st.markdown("### 3) Check yourself")
-    ans = st.text_input("Write your final problem in one sentence, and give the answer you think is correct.")
-    if st.button("✅ Quick feedback"):
+    ans = st.text_input("Write your final problem in one sentence, and give the answer you think is correct.", key="drx_final")
+    if st.button("✅ Quick feedback", key="drx_quick_feedback"):
         if ans.strip():
             feedback = ask_drx(
                 "You are Dr. X. The student wrote this percent problem and answer:\n"
